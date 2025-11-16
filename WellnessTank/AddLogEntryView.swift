@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 struct AddLogEntryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -16,14 +17,18 @@ struct AddLogEntryView: View {
     @State private var selectedVideoURL: URL?
     @State private var activityDescription: String = ""
     @State private var detectedCategory: WellnessCategory = .food
-    @State private var isAnalyzing: Bool = false
-    @State private var detectedActivities: [String] = []
+    @State private var isAnalyzing = false
     @State private var showMediaPicker = false
     @State private var showActionSheet = false
     @State private var mediaSourceType: UIImagePickerController.SourceType = .camera
+    @State private var detectedActivities: [String] = []
     
     private var hasMedia: Bool {
         selectedImage != nil || selectedVideoURL != nil
+    }
+    
+    private var isSaveDisabled: Bool {
+        !hasMedia || activityDescription.isEmpty || isAnalyzing
     }
     
     var body: some View {
@@ -45,7 +50,7 @@ struct AddLogEntryView: View {
                             Image(systemName: "camera.fill")
                                 .font(.system(size: 50))
                                 .foregroundStyle(.gray)
-                            Text("No photo or video selected")
+                            Text("No media selected")
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -57,67 +62,45 @@ struct AddLogEntryView: View {
                     Button(action: {
                         showActionSheet = true
                     }) {
-                        Label(hasMedia ? "Change Media" : "Add Photo/Video", systemImage: "photo.on.rectangle")
+                        Label(hasMedia ? "Change Media" : "Add Media", systemImage: hasMedia ? "arrow.triangle.2.circlepath" : "plus.circle")
                             .frame(maxWidth: .infinity)
                     }
                 } header: {
-                    Text("Photo or Video")
+                    Text("Media")
                 }
                 
-                Section {
-                    if isAnalyzing {
-                        HStack {
-                            ProgressView()
-                            Text("Analyzing image with AI...")
-                                .foregroundStyle(.secondary)
-                                .padding(.leading, 8)
-                        }
-                    } else if !activityDescription.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Category Badge
-                            HStack(spacing: 8) {
-                                Image(systemName: detectedCategory.icon)
-                                    .foregroundStyle(detectedCategory.color)
-                                Text(detectedCategory.rawValue)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(detectedCategory.color)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(detectedCategory.color.opacity(0.15))
-                            .clipShape(Capsule())
-                            
-                            // Description
+                if hasMedia {
+                    Section {
+                        if isAnalyzing {
                             HStack {
-                                Image(systemName: "sparkles")
-                                    .foregroundStyle(.blue)
-                                Text(activityDescription)
-                                    .font(.body)
-                            }
-                            
-                            if !detectedActivities.isEmpty {
-                                Divider()
-                                Text("Other possibilities:")
-                                    .font(.caption)
+                                ProgressView()
+                                Text("Analyzing...")
                                     .foregroundStyle(.secondary)
-                                ForEach(detectedActivities.indices, id: \.self) { index in
-                                    Text("• \(detectedActivities[index])")
+                                    .padding(.leading, 8)
+                            }
+                        } else if !activityDescription.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: detectedCategory.icon)
+                                        .foregroundStyle(detectedCategory.color)
+                                    Text(detectedCategory.rawValue)
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(detectedCategory.color)
                                 }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(detectedCategory.color.opacity(0.15))
+                                .clipShape(Capsule())
+                                
+                                Text(activityDescription)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             }
                         }
-                        .padding(.vertical, 4)
-                    } else {
-                        Text("Take or select a photo/video to detect activity")
-                            .foregroundStyle(.secondary)
-                            .font(.body)
+                    } header: {
+                        Text("AI Detection")
                     }
-                } header: {
-                    Text("AI-Detected Activity")
-                } footer: {
-                    Text("Activity is automatically detected using on-device machine learning")
                 }
             }
             .navigationTitle("New Log Entry")
@@ -133,7 +116,7 @@ struct AddLogEntryView: View {
                     Button("Save") {
                         saveEntry()
                     }
-                    .disabled(!hasMedia || activityDescription.isEmpty || isAnalyzing)
+                    .disabled(isSaveDisabled)
                 }
             }
             .confirmationDialog("Choose Media Source", isPresented: $showActionSheet) {
@@ -152,14 +135,20 @@ struct AddLogEntryView: View {
             }
             .onChange(of: selectedImage) { oldValue, newValue in
                 if let image = newValue {
-                    selectedVideoURL = nil
+                    selectedVideoURL = nil // Clear video if image is selected
                     analyzeImage(image)
                 }
             }
             .onChange(of: selectedVideoURL) { oldValue, newValue in
                 if let videoURL = newValue {
-                    selectedImage = nil
-                    analyzeVideo(videoURL)
+                    selectedImage = nil // Clear image if video is selected
+                    
+                    // Trim video if needed, then analyze
+                    Task {
+                        let trimmedURL = await trimAndSaveVideo(videoURL: videoURL)
+                        selectedVideoURL = trimmedURL
+                        analyzeVideo(trimmedURL)
+                    }
                 }
             }
         }
@@ -172,17 +161,16 @@ struct AddLogEntryView: View {
         
         // Get the main description with category
         ImageAnalyzer.shared.analyzeImage(image) { result in
-            self.activityDescription = result.description
-            self.detectedCategory = result.category
+            activityDescription = result.description
+            detectedCategory = result.category
         }
         
         // Get additional predictions
         ImageAnalyzer.shared.analyzeImageDetailed(image) { activities in
-            // Skip the first one as it's already shown as main description
             if activities.count > 1 {
-                self.detectedActivities = Array(activities.dropFirst())
+                detectedActivities = Array(activities.dropFirst())
             }
-            self.isAnalyzing = false
+            isAnalyzing = false
         }
     }
     
@@ -193,16 +181,16 @@ struct AddLogEntryView: View {
         
         // Get the main description from video with category
         ImageAnalyzer.shared.analyzeVideo(videoURL) { result in
-            self.activityDescription = result.description
-            self.detectedCategory = result.category
+            activityDescription = result.description
+            detectedCategory = result.category
         }
         
         // Get additional predictions
         ImageAnalyzer.shared.analyzeVideoDetailed(videoURL) { activities in
             if activities.count > 1 {
-                self.detectedActivities = Array(activities.dropFirst())
+                detectedActivities = Array(activities.dropFirst())
             }
-            self.isAnalyzing = false
+            isAnalyzing = false
         }
     }
     
@@ -214,6 +202,7 @@ struct AddLogEntryView: View {
             mediaData = image.jpegData(compressionQuality: 0.8)
             mediaType = .photo
         } else if let videoURL = selectedVideoURL {
+            // Video is already trimmed from onChange
             mediaData = try? Data(contentsOf: videoURL)
             mediaType = .video
         } else {
@@ -231,7 +220,56 @@ struct AddLogEntryView: View {
         )
         
         modelContext.insert(entry)
+        
         dismiss()
+    }
+    
+    private func trimAndSaveVideo(videoURL: URL) async -> URL {
+        let asset = AVAsset(url: videoURL)
+        
+        return await withCheckedContinuation { continuation in
+            Task {
+                let duration: Double
+                do {
+                    duration = try await asset.load(.duration).seconds
+                } catch {
+                    continuation.resume(returning: videoURL)
+                    return
+                }
+                
+                // Only trim if longer than 40 seconds
+                guard duration > 40 else {
+                    continuation.resume(returning: videoURL)
+                    return
+                }
+                
+                // Trim 15 seconds from start and 10 seconds from end
+                let startTime = CMTime(seconds: 15, preferredTimescale: 600)
+                let endTime = CMTime(seconds: duration - 10, preferredTimescale: 600)
+                let timeRange = CMTimeRange(start: startTime, end: endTime)
+                
+                // Export trimmed video to temp location
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + ".mp4")
+                
+                guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+                    continuation.resume(returning: videoURL)
+                    return
+                }
+                
+                exportSession.outputURL = tempURL
+                exportSession.outputFileType = .mp4
+                exportSession.timeRange = timeRange
+                
+                await exportSession.export()
+                
+                if exportSession.status == .completed {
+                    continuation.resume(returning: tempURL)
+                } else {
+                    continuation.resume(returning: videoURL)
+                }
+            }
+        }
     }
 }
 
@@ -239,4 +277,3 @@ struct AddLogEntryView: View {
     AddLogEntryView()
         .modelContainer(for: LogEntry.self, inMemory: true)
 }
-

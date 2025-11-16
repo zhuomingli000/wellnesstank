@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct MainTabView: View {
+    @StateObject private var feedStore = SharedFeedStore()
+    
     var body: some View {
         TabView {
             ContentView()
@@ -26,11 +28,14 @@ struct MainTabView: View {
                     Label("Explore", systemImage: "globe")
                 }
         }
+        .environmentObject(feedStore)
     }
 }
 
 #Preview {
     MainTabView()
         .modelContainer(for: LogEntry.self, inMemory: true)
+        .environmentObject(SharedFeedStore())
 }
+
 

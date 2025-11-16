@@ -6,16 +6,18 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct ExploreView: View {
-    @State private var sharedEntries = SharedEntry.mockEntries()
+    @EnvironmentObject private var feedStore: SharedFeedStore
     @State private var selectedCategory: WellnessCategory? = nil
     
     var filteredEntries: [SharedEntry] {
+        let entries = feedStore.entries
         if let category = selectedCategory {
-            return sharedEntries.filter { $0.category == category }
+            return entries.filter { $0.category == category }
         }
-        return sharedEntries
+        return entries
     }
     
     var body: some View {
@@ -98,6 +100,7 @@ struct FilterChip: View {
 struct SharedEntryCard: View {
     let entry: SharedEntry
     @State private var isLiked = false
+    @State private var player: AVPlayer?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -136,26 +139,43 @@ struct SharedEntryCard: View {
                 .clipShape(Capsule())
             }
             
-            // Image Placeholder
-            RoundedRectangle(cornerRadius: 12)
-                .fill(LinearGradient(
-                    colors: [entry.category.color.opacity(0.3), entry.category.color.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(height: 200)
-                .overlay {
-                    VStack {
-                        Image(systemName: entry.category.icon)
-                            .font(.system(size: 50))
-                            .foregroundStyle(entry.category.color.opacity(0.5))
-                        Text(entry.activityDescription)
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+            // Media Preview
+            if let videoURL = entry.videoURL {
+                VideoPlayer(player: player)
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(radius: 4)
+                    .onAppear {
+                        if player == nil {
+                            player = AVPlayer(url: videoURL)
+                        }
                     }
-                }
+                    .onDisappear {
+                        player?.pause()
+                        player = nil
+                    }
+            } else {
+                // Image Placeholder
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(LinearGradient(
+                        colors: [entry.category.color.opacity(0.3), entry.category.color.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(height: 200)
+                    .overlay {
+                        VStack {
+                            Image(systemName: entry.category.icon)
+                                .font(.system(size: 50))
+                                .foregroundStyle(entry.category.color.opacity(0.5))
+                            Text(entry.activityDescription)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                    }
+            }
             
             // Activity Description
             Text(entry.activityDescription)
@@ -198,5 +218,6 @@ struct SharedEntryCard: View {
 
 #Preview {
     ExploreView()
+        .environmentObject(SharedFeedStore())
 }
 

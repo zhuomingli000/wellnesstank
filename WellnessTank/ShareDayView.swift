@@ -13,9 +13,11 @@ struct ShareDayView: View {
     let entries: [LogEntry]
     @StateObject private var videoGenerator = VideoGenerator()
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var feedStore: SharedFeedStore
     
     @State private var showingSaveOptions = false
     @State private var player: AVPlayer?
+    @State private var shareSuccessMessage: String?
     
     // Convert date title to actual date string
     private var actualDateString: String {
@@ -173,6 +175,17 @@ struct ShareDayView: View {
             } message: {
                 Text("Your video has been saved to Photos!")
             }
+            .alert("Shared!", isPresented: Binding(
+                get: { shareSuccessMessage != nil },
+                set: { if !$0 { shareSuccessMessage = nil } }
+            )) {
+                Button("Nice!") {
+                    shareSuccessMessage = nil
+                    dismiss()
+                }
+            } message: {
+                Text(shareSuccessMessage ?? "")
+            }
             .onChange(of: videoGenerator.generatedVideoURL) { oldValue, newValue in
                 if let url = newValue {
                     player = AVPlayer(url: url)
@@ -196,12 +209,47 @@ struct ShareDayView: View {
     }
     
     private func shareToFeed() {
-        // In a real app, this would upload to the server
-        dismiss()
+        guard !entries.isEmpty else {
+            shareSuccessMessage = "Nothing to share yet."
+            return
+        }
+        let entry = SharedEntry(
+            id: UUID(),
+            username: "you",
+            userAvatar: "🙂",
+            timestamp: Date(),
+            activityDescription: shareSummary(),
+            category: dominantCategory(),
+            imageName: nil,
+            likes: 0,
+            videoURL: videoGenerator.generatedVideoURL
+        )
+        feedStore.add(entry: entry)
+        shareSuccessMessage = "Shared with the Explore community!"
+    }
+    
+    private func shareSummary() -> String {
+        let descriptions = entries.map { $0.activityDescription }
+        if descriptions.isEmpty { return "Shared a wellness update" }
+        let highlights = descriptions.prefix(3)
+        var summary = highlights.joined(separator: " • ")
+        if descriptions.count > 3 {
+            summary += " (+\(descriptions.count - 3) more)"
+        }
+        return summary
+    }
+    
+    private func dominantCategory() -> WellnessCategory {
+        var counts: [WellnessCategory: Int] = [:]
+        for entry in entries {
+            counts[entry.category, default: 0] += 1
+        }
+        return counts.max(by: { $0.value < $1.value })?.key ?? .food
     }
 }
 
 #Preview {
     ShareDayView(dateTitle: "Today", entries: [])
+        .environmentObject(SharedFeedStore())
 }
 

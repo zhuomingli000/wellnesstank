@@ -16,6 +16,7 @@ struct SharedEntry: Identifiable {
     let category: WellnessCategory
     let imageName: String? // For demo purposes
     let likes: Int
+    let videoURL: URL?
     
     static func mockEntries() -> [SharedEntry] {
         [
@@ -27,7 +28,8 @@ struct SharedEntry: Identifiable {
                 activityDescription: "Morning workout session (95%)",
                 category: .workout,
                 imageName: nil,
-                likes: 24
+                likes: 24,
+                videoURL: nil
             ),
             SharedEntry(
                 id: UUID(),
@@ -37,7 +39,8 @@ struct SharedEntry: Identifiable {
                 activityDescription: "Acai bowl (88%)",
                 category: .food,
                 imageName: nil,
-                likes: 42
+                likes: 42,
+                videoURL: nil
             ),
             SharedEntry(
                 id: UUID(),
@@ -47,7 +50,8 @@ struct SharedEntry: Identifiable {
                 activityDescription: "Daily vitamins (92%)",
                 category: .supplements,
                 imageName: nil,
-                likes: 18
+                likes: 18,
+                videoURL: nil
             ),
             SharedEntry(
                 id: UUID(),
@@ -57,7 +61,8 @@ struct SharedEntry: Identifiable {
                 activityDescription: "Yoga practice (90%)",
                 category: .workout,
                 imageName: nil,
-                likes: 56
+                likes: 56,
+                videoURL: nil
             ),
             SharedEntry(
                 id: UUID(),
@@ -67,7 +72,8 @@ struct SharedEntry: Identifiable {
                 activityDescription: "Grilled chicken salad (87%)",
                 category: .food,
                 imageName: nil,
-                likes: 31
+                likes: 31,
+                videoURL: nil
             )
         ]
     }
