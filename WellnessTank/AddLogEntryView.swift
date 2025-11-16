@@ -14,10 +14,17 @@ struct AddLogEntryView: View {
     @Environment(\.dismiss) private var dismiss
     
     // Multi-select states only
-    @State private var showMultiPicker = false
+    @State private var pickerPresentationState: [Bool] = [false, false]
     @State private var selectedMultiItems: [SelectedMediaItem] = []
     @State private var isProcessing = false
     @State private var processingStatus = ""
+    
+    private var pickerSheetBinding: Binding<Bool> {
+        Binding(
+            get: { pickerPresentationState[0] },
+            set: { pickerPresentationState[0] = $0 }
+        )
+    }
     
     var body: some View {
         NavigationStack {
@@ -33,10 +40,10 @@ struct AddLogEntryView: View {
             .toolbar {
                 cancelButton
             }
-            .sheet(isPresented: $showMultiPicker) {
-                MultiMediaPicker(selectedItems: $selectedMultiItems, isPresented: $showMultiPicker)
+            .sheet(isPresented: pickerSheetBinding) {
+                MultiMediaPicker(selectedItems: $selectedMultiItems, isPresented: $pickerPresentationState)
             }
-            .onChange(of: showMultiPicker, handlePickerDismissal)
+            .onChange(of: pickerPresentationState[1], perform: handlePickerWorkStateChange)
             .onChange(of: selectedMultiItems, handleMediaItemsChange)
         }
     }
@@ -62,7 +69,7 @@ struct AddLogEntryView: View {
     @ViewBuilder
     private var selectMediaButton: some View {
         Button(action: {
-            showMultiPicker = true
+            pickerPresentationState[0] = true
         }) {
             Label("Select Media", systemImage: "photo.on.rectangle.angled")
                 .font(.title3)
@@ -106,12 +113,12 @@ struct AddLogEntryView: View {
         }
     }
     
-    private func handlePickerDismissal(oldValue: Bool, newValue: Bool) {
-        if oldValue == true && newValue == false {
-            print("AddLogEntryView: Picker dismissed - showing loading UI")
-            isProcessing = true
-            processingStatus = "Loading selected items..."
-        }
+    private func handlePickerWorkStateChange(_ isWorking: Bool) {
+        guard isWorking else { return }
+        
+        print("AddLogEntryView: Picker started processing selected items")
+        isProcessing = true
+        processingStatus = "Loading selected items..."
     }
     
     private func handleMediaItemsChange(oldValue: [SelectedMediaItem], newValue: [SelectedMediaItem]) {

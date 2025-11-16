@@ -20,7 +20,7 @@ struct SelectedMediaItem: Identifiable, Equatable {
 
 struct MultiMediaPicker: UIViewControllerRepresentable {
     @Binding var selectedItems: [SelectedMediaItem]
-    @Binding var isPresented: Bool
+    @Binding var isPresented: [Bool]
     
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration(photoLibrary: .shared())
@@ -46,19 +46,21 @@ struct MultiMediaPicker: UIViewControllerRepresentable {
         }
         
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-            parent.isPresented = false
+            parent.isPresented[0] = false
             
             guard !results.isEmpty else { 
                 print("MultiMediaPicker: No results selected")
+                parent.isPresented[1] = false
                 return 
             }
+            
+            parent.isPresented[1] = true
             
             print("MultiMediaPicker: Processing \(results.count) items")
             
             let group = DispatchGroup()
             var newItems: [SelectedMediaItem] = []
             let lock = NSLock()
-            
             for result in results {
                 // Check if it's a video
                 if result.itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
@@ -109,6 +111,7 @@ struct MultiMediaPicker: UIViewControllerRepresentable {
             group.notify(queue: .main) {
                 print("MultiMediaPicker: Finished loading all items. Total: \(newItems.count)")
                 self.parent.selectedItems = newItems
+                self.parent.isPresented[1] = false
             }
         }
     }
