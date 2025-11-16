@@ -17,6 +17,17 @@ struct ShareDayView: View {
     @State private var showingSaveOptions = false
     @State private var player: AVPlayer?
     
+    // Convert date title to actual date string
+    private var actualDateString: String {
+        if dateTitle == "Today" {
+            return Date().formatted(date: .abbreviated, time: .omitted)
+        } else if dateTitle == "Yesterday" {
+            return Calendar.current.date(byAdding: .day, value: -1, to: Date())?.formatted(date: .abbreviated, time: .omitted) ?? dateTitle
+        } else {
+            return dateTitle
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -39,23 +50,16 @@ struct ShareDayView: View {
                         // Video Preview
                         if let player = player {
                             VideoPlayer(player: player)
-                                .frame(height: 500)
+                                .frame(height: 360)            // was 500
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .shadow(radius: 10)
-                                .padding()
-                                .onAppear {
-                                    player.play()
-                                }
-                                .onDisappear {
-                                    player.pause()
-                                }
+                                .padding(.horizontal)          // instead of .padding() (less vertical space)
+                                .padding(.top, 8)
+                                .onAppear { player.play() }
+                                .onDisappear { player.pause() }
                         }
                         
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.green)
-                        
-                        Text("Video Generated!")
+                        Text("Done!")
                             .font(.title2)
                             .fontWeight(.semibold)
                         
@@ -178,7 +182,7 @@ struct ShareDayView: View {
     }
     
     private func generateVideo() {
-        videoGenerator.generateDayVideo(entries: entries, dateTitle: dateTitle) { url in
+        videoGenerator.generateDayVideo(entries: entries, dateTitle: actualDateString) { url in
             // Video generation completed
         }
     }
