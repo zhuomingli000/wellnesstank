@@ -13,215 +13,142 @@ struct AddLogEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    @State private var selectedImage: UIImage?
-    @State private var selectedVideoURL: URL?
-    @State private var activityDescription: String = ""
-    @State private var detectedCategory: WellnessCategory = .food
-    @State private var isAnalyzing = false
-    @State private var showMediaPicker = false
-    @State private var showActionSheet = false
-    @State private var mediaSourceType: UIImagePickerController.SourceType = .camera
-    @State private var detectedActivities: [String] = []
-    
-    private var hasMedia: Bool {
-        selectedImage != nil || selectedVideoURL != nil
-    }
-    
-    private var isSaveDisabled: Bool {
-        !hasMedia || activityDescription.isEmpty || isAnalyzing
-    }
+    // Multi-select states only
+    @State private var showMultiPicker = false
+    @State private var selectedMultiItems: [SelectedMediaItem] = []
+    @State private var isProcessing = false
+    @State private var processingStatus = ""
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    if let image = selectedImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 300)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else if let videoURL = selectedVideoURL {
-                        VideoThumbnailView(videoURL: videoURL)
-                            .frame(maxHeight: 300)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 50))
-                                .foregroundStyle(.gray)
-                            Text("No media selected")
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
-                        .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    
-                    Button(action: {
-                        showActionSheet = true
-                    }) {
-                        Label(hasMedia ? "Change Media" : "Add Media", systemImage: hasMedia ? "arrow.triangle.2.circlepath" : "plus.circle")
-                            .frame(maxWidth: .infinity)
-                    }
-                } header: {
-                    Text("Media")
-                }
+            ZStack {
+                contentView
                 
-                if hasMedia {
-                    Section {
-                        if isAnalyzing {
-                            HStack {
-                                ProgressView()
-                                Text("Analyzing...")
-                                    .foregroundStyle(.secondary)
-                                    .padding(.leading, 8)
-                            }
-                        } else if !activityDescription.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: detectedCategory.icon)
-                                        .foregroundStyle(detectedCategory.color)
-                                    Text(detectedCategory.rawValue)
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(detectedCategory.color)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(detectedCategory.color.opacity(0.15))
-                                .clipShape(Capsule())
-                                
-                                Text(activityDescription)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    } header: {
-                        Text("AI Detection")
-                    }
+                if isProcessing {
+                    processingOverlay
                 }
             }
             .navigationTitle("New Log Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
+                cancelButton
+            }
+            .sheet(isPresented: $showMultiPicker) {
+                MultiMediaPicker(selectedItems: $selectedMultiItems, isPresented: $showMultiPicker)
+            }
+            .onChange(of: showMultiPicker, handlePickerDismissal)
+            .onChange(of: selectedMultiItems, handleMediaItemsChange)
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        VStack(spacing: 20) {
+            if !isProcessing {
+                AppLogo(size: 80)
                 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveEntry()
-                    }
-                    .disabled(isSaveDisabled)
-                }
+                Text("Select photos and videos from your library")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding()
+                
+                selectMediaButton
             }
-            .confirmationDialog("Choose Media Source", isPresented: $showActionSheet) {
-                Button("Take Photo/Video") {
-                    mediaSourceType = .camera
-                    showMediaPicker = true
-                }
-                Button("Choose from Library") {
-                    mediaSourceType = .photoLibrary
-                    showMediaPicker = true
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .sheet(isPresented: $showMediaPicker) {
-                MediaPicker(selectedImage: $selectedImage, selectedVideoURL: $selectedVideoURL, isPresented: $showMediaPicker, sourceType: mediaSourceType)
-            }
-            .onChange(of: selectedImage) { oldValue, newValue in
-                if let image = newValue {
-                    selectedVideoURL = nil // Clear video if image is selected
-                    analyzeImage(image)
-                }
-            }
-            .onChange(of: selectedVideoURL) { oldValue, newValue in
-                if let videoURL = newValue {
-                    selectedImage = nil // Clear image if video is selected
-                    
-                    // Trim video if needed, then analyze
-                    Task {
-                        let trimmedURL = await trimAndSaveVideo(videoURL: videoURL)
-                        selectedVideoURL = trimmedURL
-                        analyzeVideo(trimmedURL)
-                    }
-                }
-            }
+            
+            Spacer()
         }
     }
     
-    private func analyzeImage(_ image: UIImage) {
-        isAnalyzing = true
-        activityDescription = ""
-        detectedActivities = []
-        
-        // Get the main description with category
-        ImageAnalyzer.shared.analyzeImage(image) { result in
-            activityDescription = result.description
-            detectedCategory = result.category
+    @ViewBuilder
+    private var selectMediaButton: some View {
+        Button(action: {
+            showMultiPicker = true
+        }) {
+            Label("Select Media", systemImage: "photo.on.rectangle.angled")
+                .font(.title3)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.accentColor)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .padding(.horizontal)
+    }
+    
+    @ViewBuilder
+    private var processingOverlay: some View {
+        Color.black.opacity(0.4)
+            .ignoresSafeArea()
         
-        // Get additional predictions
-        ImageAnalyzer.shared.analyzeImageDetailed(image) { activities in
-            if activities.count > 1 {
-                detectedActivities = Array(activities.dropFirst())
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(2)
+                .tint(.white)
+            
+            Text(processingStatus)
+                .font(.headline)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .padding()
+                .background(Color.black.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .padding()
+    }
+    
+    @ToolbarContentBuilder
+    private var cancelButton: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Cancel") {
+                dismiss()
             }
-            isAnalyzing = false
+            .disabled(isProcessing)
         }
     }
     
-    private func analyzeVideo(_ videoURL: URL) {
-        isAnalyzing = true
-        activityDescription = ""
-        detectedActivities = []
-        
-        // Get the main description from video with category
-        ImageAnalyzer.shared.analyzeVideo(videoURL) { result in
-            activityDescription = result.description
-            detectedCategory = result.category
-        }
-        
-        // Get additional predictions
-        ImageAnalyzer.shared.analyzeVideoDetailed(videoURL) { activities in
-            if activities.count > 1 {
-                detectedActivities = Array(activities.dropFirst())
-            }
-            isAnalyzing = false
+    private func handlePickerDismissal(oldValue: Bool, newValue: Bool) {
+        if oldValue == true && newValue == false {
+            print("AddLogEntryView: Picker dismissed - showing loading UI")
+            isProcessing = true
+            processingStatus = "Loading selected items..."
         }
     }
     
-    private func saveEntry() {
-        let mediaData: Data?
-        let mediaType: MediaType
+    private func handleMediaItemsChange(oldValue: [SelectedMediaItem], newValue: [SelectedMediaItem]) {
+        print("AddLogEntryView: onChange triggered. Old count: \(oldValue.count), New count: \(newValue.count)")
         
-        if let image = selectedImage {
-            mediaData = image.jpegData(compressionQuality: 0.8)
-            mediaType = .photo
-        } else if let videoURL = selectedVideoURL {
-            // Video is already trimmed from onChange
-            mediaData = try? Data(contentsOf: videoURL)
-            mediaType = .video
-        } else {
+        guard !newValue.isEmpty else {
+            print("AddLogEntryView: newValue is empty, returning")
+            if oldValue.isEmpty && isProcessing {
+                isProcessing = false
+            }
             return
         }
         
-        guard let data = mediaData else { return }
+        print("AddLogEntryView: Starting to process \(newValue.count) items")
         
-        let entry = LogEntry(
-            timestamp: Date(),
-            activityDescription: activityDescription,
-            mediaData: data,
-            mediaType: mediaType,
-            category: detectedCategory
-        )
+        DispatchQueue.main.async {
+            self.isProcessing = true
+            self.processingStatus = "Processing \(newValue.count) items..."
+        }
         
-        modelContext.insert(entry)
-        
-        dismiss()
+        Task {
+            for (index, item) in newValue.enumerated() {
+                print("AddLogEntryView: Processing item \(index + 1) of \(newValue.count)")
+                await MainActor.run {
+                    processingStatus = "Processing \(index + 1) of \(newValue.count)...\nTrimming, analyzing, and saving"
+                }
+                await processAndSaveMultiItem(item)
+                print("AddLogEntryView: Finished item \(index + 1)")
+            }
+            
+            print("AddLogEntryView: All items processed, dismissing")
+            await MainActor.run {
+                selectedMultiItems = []
+                isProcessing = false
+                dismiss()
+            }
+        }
     }
     
     private func trimAndSaveVideo(videoURL: URL) async -> URL {
@@ -269,6 +196,60 @@ struct AddLogEntryView: View {
                     continuation.resume(returning: videoURL)
                 }
             }
+        }
+    }
+    
+    private func processAndSaveMultiItem(_ item: SelectedMediaItem) async {
+        let mediaData: Data?
+        let mediaType: MediaType
+        var description: String = ""
+        var category: WellnessCategory = .food
+        
+        if let image = item.image {
+            // Process image
+            mediaData = image.jpegData(compressionQuality: 0.8)
+            mediaType = .photo
+            
+            // Analyze image synchronously
+            await withCheckedContinuation { continuation in
+                ImageAnalyzer.shared.analyzeImage(image) { result in
+                    description = result.description
+                    category = result.category
+                    continuation.resume()
+                }
+            }
+        } else if let videoURL = item.videoURL {
+            // Trim video if needed
+            let trimmedURL = await trimAndSaveVideo(videoURL: videoURL)
+            
+            // Process video
+            mediaData = try? Data(contentsOf: trimmedURL)
+            mediaType = .video
+            
+            // Analyze video synchronously
+            await withCheckedContinuation { continuation in
+                ImageAnalyzer.shared.analyzeVideo(trimmedURL) { result in
+                    description = result.description
+                    category = result.category
+                    continuation.resume()
+                }
+            }
+        } else {
+            return
+        }
+        
+        guard let data = mediaData, !description.isEmpty else { return }
+        
+        // Save entry on main actor
+        await MainActor.run {
+            let entry = LogEntry(
+                timestamp: Date(),
+                activityDescription: description,
+                mediaData: data,
+                mediaType: mediaType,
+                category: category
+            )
+            modelContext.insert(entry)
         }
     }
 }

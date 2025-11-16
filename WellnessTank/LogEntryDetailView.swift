@@ -56,14 +56,6 @@ struct LogEntryDetailView: View {
                     .padding(.vertical, 8)
                     .background(entry.category.color.opacity(0.15))
                     .clipShape(Capsule())
-                    
-                    // Description
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Details")
-                            .font(.headline)
-                        Text(entry.activityDescription)
-                            .font(.body)
-                    }
                 }
                 
                 Spacer()

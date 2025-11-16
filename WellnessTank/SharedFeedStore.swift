@@ -12,7 +12,7 @@ import Combine
 final class SharedFeedStore: ObservableObject {
     @Published private(set) var entries: [SharedEntry]
     
-    init(initialEntries: [SharedEntry] = SharedEntry.mockEntries()) {
+    init(initialEntries: [SharedEntry] = []) {
         self.entries = initialEntries
     }
     

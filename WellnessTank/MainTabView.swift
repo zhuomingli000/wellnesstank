@@ -25,7 +25,7 @@ struct MainTabView: View {
             
             ExploreView()
                 .tabItem {
-                    Label("Explore", systemImage: "globe")
+                    Label("Journey", systemImage: "globe")
                 }
         }
         .environmentObject(feedStore)

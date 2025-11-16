@@ -135,7 +135,7 @@ struct ContentView: View {
                         // Category checkboxes
                         CategoryCheckboxes(entries: section.1)
                         
-                        // Share My Day button
+                        // Compile My Day button
                         ShareDayButton(dateTitle: section.0, entries: section.1)
                     }
                 }
@@ -162,7 +162,7 @@ struct ShareDayButton: View {
             HStack(spacing: 4) {
                 Image(systemName: "video.badge.plus")
                     .font(.caption)
-                Text("Share My Day")
+                Text("Compile My Day")
                     .font(.caption)
                     .fontWeight(.medium)
             }
@@ -277,17 +277,10 @@ struct LogEntryRow: View {
                     }
                 }
                 
-                // Detection details and timestamp as subtitle
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.activityDescription)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    
-                    Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
+                // Timestamp as subtitle
+                Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.vertical, 4)

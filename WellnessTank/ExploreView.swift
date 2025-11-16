@@ -10,117 +10,56 @@ import AVKit
 
 struct ExploreView: View {
     @EnvironmentObject private var feedStore: SharedFeedStore
-    @State private var selectedCategory: WellnessCategory? = nil
     
-    var filteredEntries: [SharedEntry] {
-        let entries = feedStore.entries
-        if let category = selectedCategory {
-            return entries.filter { $0.category == category }
-        }
-        return entries
+    var myCompiledVideos: [SharedEntry] {
+        // Only show entries with videos (compiled videos)
+        feedStore.entries.filter { $0.videoURL != nil }
     }
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                    // Category Filter
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            FilterChip(
-                                title: "All",
-                                icon: "sparkles",
-                                color: .blue,
-                                isSelected: selectedCategory == nil
-                            ) {
-                                selectedCategory = nil
-                            }
-                            
-                            ForEach(WellnessCategory.allCases, id: \.self) { category in
-                                FilterChip(
-                                    title: category.rawValue,
-                                    icon: category.icon,
-                                    color: category.color,
-                                    isSelected: selectedCategory == category
-                                ) {
-                                    selectedCategory = category
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.vertical, 12)
+                if myCompiledVideos.isEmpty {
+                    VStack(spacing: 20) {
+                        AppLogo(size: 100)
+                        
+                        Text("No Compiled Videos Yet")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Text("Tap 'Compile My Day' to create your first video compilation")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
                     }
-                    .background(Color(.systemBackground))
-                    
-                    Divider()
-                    
-                    // Shared Entries Feed
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                } else {
                     LazyVStack(spacing: 16) {
-                        ForEach(filteredEntries) { entry in
-                            SharedEntryCard(entry: entry)
+                        ForEach(myCompiledVideos) { entry in
+                            CompiledVideoCard(entry: entry)
                         }
                     }
                     .padding()
                 }
             }
-            .navigationTitle("Explore")
-            .refreshable {
-                // In a real app, this would fetch from server
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-            }
+            .navigationTitle("Journey")
         }
     }
 }
 
-struct FilterChip: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.caption)
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? color : Color(.systemGray6))
-            .foregroundStyle(isSelected ? .white : .primary)
-            .clipShape(Capsule())
-        }
-    }
-}
-
-struct SharedEntryCard: View {
+struct CompiledVideoCard: View {
     let entry: SharedEntry
-    @State private var isLiked = false
     @State private var player: AVPlayer?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // User Info Header
-            HStack(spacing: 12) {
-                Text(entry.userAvatar)
-                    .font(.title2)
-                    .frame(width: 40, height: 40)
-                    .background(Color(.systemGray6))
-                    .clipShape(Circle())
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.username)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    
-                    Text(entry.timestamp.formatted(.relative(presentation: .named)))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            // Date Header
+            HStack {
+                Text(entry.timestamp.formatted(date: .abbreviated, time: .omitted))
+                    .font(.headline)
+                    .fontWeight(.semibold)
                 
                 Spacer()
                 
@@ -139,10 +78,10 @@ struct SharedEntryCard: View {
                 .clipShape(Capsule())
             }
             
-            // Media Preview
+            // Video Player
             if let videoURL = entry.videoURL {
                 VideoPlayer(player: player)
-                    .frame(height: 220)
+                    .frame(height: 400)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(radius: 4)
                     .onAppear {
@@ -154,59 +93,6 @@ struct SharedEntryCard: View {
                         player?.pause()
                         player = nil
                     }
-            } else {
-                // Image Placeholder
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(LinearGradient(
-                        colors: [entry.category.color.opacity(0.3), entry.category.color.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .frame(height: 200)
-                    .overlay {
-                        VStack {
-                            Image(systemName: entry.category.icon)
-                                .font(.system(size: 50))
-                                .foregroundStyle(entry.category.color.opacity(0.5))
-                            Text(entry.activityDescription)
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                    }
-            }
-            
-            // Activity Description
-            Text(entry.activityDescription)
-                .font(.body)
-            
-            // Actions
-            HStack(spacing: 20) {
-                Button {
-                    isLiked.toggle()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .foregroundStyle(isLiked ? .red : .secondary)
-                        Text("\(entry.likes + (isLiked ? 1 : 0))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                Button {
-                    // Comment action
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bubble.right")
-                        Text("Comment")
-                            .font(.subheadline)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
             }
         }
         .padding()

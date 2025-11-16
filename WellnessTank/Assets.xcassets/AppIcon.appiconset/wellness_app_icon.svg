@@ -1,0 +1,49 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a8e6cf;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#56c596;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.7" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background -->
+  <rect width="200" height="200" rx="45" fill="url(#bgGradient)"/>
+  
+  <!-- Lotus/leaf design -->
+  <g transform="translate(100, 100)">
+    <!-- Center circle -->
+    <circle cx="0" cy="0" r="18" fill="#ffffff" opacity="0.95"/>
+    
+    <!-- Petals/leaves -->
+    <g opacity="0.9">
+      <!-- Top petal -->
+      <ellipse cx="0" cy="-35" rx="20" ry="32" fill="url(#leafGradient)"/>
+      
+      <!-- Right petal -->
+      <ellipse cx="30" cy="-17" rx="20" ry="32" fill="url(#leafGradient)" transform="rotate(72 30 -17)"/>
+      
+      <!-- Bottom right petal -->
+      <ellipse cx="19" cy="28" rx="20" ry="32" fill="url(#leafGradient)" transform="rotate(144 19 28)"/>
+      
+      <!-- Bottom left petal -->
+      <ellipse cx="-19" cy="28" rx="20" ry="32" fill="url(#leafGradient)" transform="rotate(216 -19 28)"/>
+      
+      <!-- Left petal -->
+      <ellipse cx="-30" cy="-17" rx="20" ry="32" fill="url(#leafGradient)" transform="rotate(288 -30 -17)"/>
+    </g>
+    
+    <!-- Inner petals (smaller) -->
+    <g opacity="0.8">
+      <ellipse cx="0" cy="-22" rx="12" ry="20" fill="#ffffff"/>
+      <ellipse cx="19" cy="-11" rx="12" ry="20" fill="#ffffff" transform="rotate(72 19 -11)"/>
+      <ellipse cx="12" cy="18" rx="12" ry="20" fill="#ffffff" transform="rotate(144 12 18)"/>
+      <ellipse cx="-12" cy="18" rx="12" ry="20" fill="#ffffff" transform="rotate(216 -12 18)"/>
+      <ellipse cx="-19" cy="-11" rx="12" ry="20" fill="#ffffff" transform="rotate(288 -19 -11)"/>
+    </g>
+  </g>
+</svg>

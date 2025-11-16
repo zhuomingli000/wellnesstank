@@ -86,7 +86,7 @@ struct ShareDayView: View {
                             Button {
                                 shareToFeed()
                             } label: {
-                                Label("Share to Feed", systemImage: "globe")
+                                Label("Add to journey", systemImage: "globe")
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(Color.green)
@@ -102,11 +102,11 @@ struct ShareDayView: View {
                             .font(.system(size: 60))
                             .foregroundStyle(.blue)
                         
-                        Text("Share My Day")
+                        Text("Compile My Day")
                             .font(.title)
                             .fontWeight(.bold)
                         
-                        Text("Create a 10-second video compilation of your \(dateTitle.lowercased()) wellness activities with background music.")
+                        Text("Create a 10-second video compilation of your \(dateTitle.lowercased()) wellness activities .")
                             .font(.body)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -160,7 +160,7 @@ struct ShareDayView: View {
                         .padding()
                 }
             }
-            .navigationTitle("Share My Day")
+            .navigationTitle("Compile My Day")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -225,7 +225,7 @@ struct ShareDayView: View {
             videoURL: videoGenerator.generatedVideoURL
         )
         feedStore.add(entry: entry)
-        shareSuccessMessage = "Shared with the Explore community!"
+        shareSuccessMessage = "Added to your journey!"
     }
     
     private func shareSummary() -> String {
